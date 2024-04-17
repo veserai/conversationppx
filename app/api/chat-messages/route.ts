@@ -1,16 +1,26 @@
-import { type NextRequest } from 'next/server'
-import { client, getInfo } from '@/app/api/utils/common'
+// app/api/chat/route.ts
+import { OpenAIStream, StreamingTextResponse } from 'ai';
+import OpenAI from 'openai';
 
-export async function POST(request: NextRequest) {
-  const body = await request.json()
-  const {
-    inputs,
-    query,
-    files,
-    conversation_id: conversationId,
-    response_mode: responseMode,
-  } = body
-  const { user } = getInfo(request)
-  const res = await client.createChatMessage(inputs, query, user, responseMode, conversationId, files)
-  return new Response(res.data as any)
+const perplexity = new OpenAI({
+  apiKey: process.env.PERPLEXITY_API_KEY || '',
+  baseURL: 'https://api.perplexity.ai',
+});
+
+export async function POST(req: Request) {
+  // Extract the `messages` from the body of the request
+  const { messages } = await req.json();
+
+  // Request the OpenAI-compatible API for the response based on the prompt
+  const response = await perplexity.chat.completions.create({
+    model: 'pplx-7b-chat',
+    stream: true,
+    messages: messages,
+  });
+
+  // Convert the response into a friendly text-stream
+  const stream = OpenAIStream(response);
+
+  // Respond with the stream
+  return new StreamingTextResponse(stream);
 }
